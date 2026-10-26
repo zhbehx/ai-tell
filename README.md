@@ -160,7 +160,7 @@ AI 味：2.9 / 100    很有人味：细节密度和节奏都自然
 2. **它不认生僻写法。** 有意打破节奏的实验文本可能被误判——看证据，别只看分数。
 3. **词库是中文优先的。** 英文文本只对「句长均匀」「具体性缺失」有效。欢迎 PR 补英文模式。
 
-> `market/social-preview.png` 是本仓的社交预览图（1280×640），也用于 README 顶部与分享卡片。改文案后跑 `python ../make_previews.py --only ai-tell` 重新生成。
+> `market/social-preview.png` 是本仓的社交预览图（1280×640），用于 README 顶部与分享卡片。改文案后跑 `python market/make_preview.py` 重新生成（需要 Pillow）。
 
 ## 自定义
 
