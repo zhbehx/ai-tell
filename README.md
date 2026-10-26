@@ -2,6 +2,8 @@
 
 > 测出你的稿子哪几句像 AI 写的，给出可解释的分数与证据，再按七个动作改成人话。
 
+![AI 味检测器](./market/social-preview.png)
+
 [![Agent Skill](https://img.shields.io/badge/Agent%20Skill-SKILL.md-111827)](./SKILL.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e)](./LICENSE)
 [![No deps](https://img.shields.io/badge/依赖-无-0ea5e9)](#)
@@ -157,6 +159,8 @@ AI 味：2.9 / 100    很有人味：细节密度和节奏都自然
 1. **它测语言特征，不测内容价值。** 0 分也可能是一篇废话。
 2. **它不认生僻写法。** 有意打破节奏的实验文本可能被误判——看证据，别只看分数。
 3. **词库是中文优先的。** 英文文本只对「句长均匀」「具体性缺失」有效。欢迎 PR 补英文模式。
+
+> `market/social-preview.png` 是本仓的社交预览图（1280×640），也用于 README 顶部与分享卡片。改文案后跑 `python ../make_previews.py --only ai-tell` 重新生成。
 
 ## 自定义
 
