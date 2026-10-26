@@ -1,0 +1,66 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 校验 SKILL.md frontmatter
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path("SKILL.md").read_text(encoding="utf-8")
+          assert text.startswith("---\n"), "SKILL.md 必须以 YAML frontmatter 开头"
+          fm = text.split("---", 2)[1]
+          for key in ("name:", "description:"):
+              assert key in fm, f"frontmatter 缺少 {key}"
+          print("frontmatter OK")
+          PY
+
+      - name: 脚本语法
+        run: python -m py_compile scripts/*.py
+
+      - name: 冒烟 + 校准断言（AI 稿必须高于 75，人写稿必须低于 20）
+        run: |
+          python scripts/ai_tell.py examples/fixtures/ai_draft.txt --json > /tmp/ai.json || true
+          python scripts/ai_tell.py examples/fixtures/human_draft.txt --json > /tmp/human.json || true
+          python - <<'PY'
+          import json
+          ai = json.load(open("/tmp/ai.json", encoding="utf-8"))["score"]
+          human = json.load(open("/tmp/human.json", encoding="utf-8"))["score"]
+          print(f"AI 稿 {ai}  人写稿 {human}")
+          assert ai >= 75, f"校准失效：AI 稿只有 {ai} 分"
+          assert human <= 20, f"校准失效：人写稿有 {human} 分"
+          assert ai - human >= 50, "区分度不足"
+          print("calibration OK")
+          PY
+
+      - name: 阈值退出码
+        run: |
+          python scripts/ai_tell.py examples/fixtures/human_draft.txt --fail-over 60
+          if python scripts/ai_tell.py examples/fixtures/ai_draft.txt --fail-over 60; then
+            echo "AI 稿没有触发 fail-over，逻辑有误" && exit 1
+          else
+            echo "fail-over OK"
+          fi
+
+      - name: README 相对链接可解析
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("README.md").read_text(encoding="utf-8")
+          bad = [m.group(1) for m in re.finditer(r"\]\((\./[^)#]+)\)", text) if not Path(m.group(1)).exists()]
+          assert not bad, f"README 里有死链: {bad}"
+          print("links OK")
+          PY
