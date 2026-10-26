@@ -154,6 +154,9 @@ AI 味：2.9 / 100    很有人味：细节密度和节奏都自然
 
 职场五件套：[简历对岗改写](https://github.com/zhbehx/resume-tailor) · [面试陪练](https://github.com/zhbehx/interview-coach) · [汇报写作](https://github.com/zhbehx/weekly-report) · [PPT 叙事大纲](https://github.com/zhbehx/slide-story) · [会议纪要](https://github.com/zhbehx/meeting-actions)
 
+- **避坑与决策**：[JD 红旗检测](https://github.com/zhbehx/jd-redflag) · [合同风险扫描](https://github.com/zhbehx/contract-redflag) · [会议成本](https://github.com/zhbehx/meeting-cost)
+- **发布与沟通**：[隐私自查](https://github.com/zhbehx/privacy-scan) · [职场语气](https://github.com/zhbehx/tone-check)
+
 共同点：零依赖、中文优先、每个都带一个确定性检查脚本。
 
 ## 和写作类 skill 怎么配合
