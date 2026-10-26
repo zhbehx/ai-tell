@@ -62,6 +62,10 @@ STRUCT_PATTERNS = [
     (r"^\s*(一|二|三|四|五)[、.]\s*\S", "序号小标题"),
     (r"^\s*首先[，,]", "首先/其次式分段"),
     (r"^\s*(最后|最终)[，,]", "最后收尾式分段"),
+    (r"^\s*(?:Introduction|Background|Overview|Conclusion|Summary|Key Takeaways)\s*$",
+     "英文模板小标题"),
+    (r"^\s*(?:First|Firstly|Second|Secondly|Third|Finally|Moreover|Furthermore|Additionally)[,:]",
+     "英文序数分段"),
 ]
 
 # 五、抽象大词（具体性缺失）
@@ -72,17 +76,65 @@ ABSTRACT = [
     "不断优化", "持续完善", "深入探索", "积极推动",
 ]
 
+# 英文 AI 味词表（issue #1）
+EN_JARGON = [
+    "delve", "leverage", "robust", "seamless", "holistic", "synergy", "synergies",
+    "paradigm", "transformative", "cutting-edge", "game-changer", "best-in-class",
+    "streamline", "ecosystem", "stakeholder", "circle back", "deep dive",
+    "low-hanging fruit", "move the needle", "bandwidth", "learnings", "ideate",
+    "double-click", "north star", "value-add", "actionable insights",
+    "at scale", "end-to-end", "next-level", "mission-critical", "scalable solution",
+]
+
+EN_EMPTY = [
+    "in today's fast-paced world", "in today's world", "in this day and age",
+    "it is worth noting", "it's worth noting", "needless to say",
+    "it goes without saying", "hope this helps", "hope that helps",
+    "let's dive in", "let's delve", "in conclusion", "to sum up",
+    "at the end of the day", "the key takeaway is", "here's the thing",
+    "look no further", "buckle up", "without further ado",
+    "embrace change", "continue to grow", "unlock the power",
+]
+
+EN_PARALLEL = [
+    r"not only [^.]{2,40} but also",
+    r"not just [^.]{2,60} but also",
+    r"it'?s not (?:just )?[^.]{2,60},? but",
+    r"on one hand[^.]{0,80}on the other",
+    r"whether you'?re [^.]{2,40} or",
+    r"from [^.]{2,20} to [^.]{2,20}",
+    r"more than just [^.]{2,30}",
+]
+
+EN_ABSTRACT = [
+    "integral part", "crucial role", "vital role", "significant impact",
+    "profound impact", "wide range of", "various aspects", "key factor",
+    "essential element", "greatly enhance", "significantly improve",
+    "effectively promote", "fully leverage", "continuously optimize",
+]
+
 # 六、可验证的具体性信号（加分，抵抗 AI 味）
 SPECIFIC = [
     r"\d+(?:\.\d+)?\s*(?:%|个|人|家|次|天|周|月|年|小时|万|千|元|倍|分|条|版|GB|ms|秒)",
     r"\d{1,2}\s*[/月.-]\s*\d{1,2}",
-    r"[A-Z][a-zA-Z]{2,}",
+    r"\b\d+(?:\.\d+)?\s*(?:%|percent|x|hours?|days?|weeks?|months?|years?|people|customers|users|lines?|files?|servers?|tickets?|steps?|versions?|pages?|words?)\b",
+    r"\$\s?\d[\d,.]*",
+    r"\b(?:Q[1-4]|FY\d{2,4})\b",
     r"第[一二三四五六七八九十\d]+(?:次|版|轮|步)",
     r"「[^」]{1,20}」",
 ]
 
-SENT_SPLIT = re.compile(r"[。！？!?\n]")
+SENT_SPLIT = re.compile(r"[。！？!?\n]|(?<=[a-z0-9])\.(?=\s)")
 CJK = re.compile(r"[\u4e00-\u9fff]")
+LATIN_WORD = re.compile(r"[A-Za-z][A-Za-z'-]+")
+
+
+def detect_lang(text: str) -> str:
+    """按字符占比判断主流语言：zh / en。"""
+    cjk = len(CJK.findall(text))
+    words = len(LATIN_WORD.findall(text))
+    # 一个英文词约等于 1.6 个中文汉字的「信息量」，据此比较
+    return "zh" if cjk >= words * 1.6 else "en"
 
 # 被引用的词不算「用了这个词」：引号内、中文书名号内、行内代码内的内容先遮蔽再统计。
 QUOTED = re.compile(r"`[^`\n]{1,80}`|「[^」\n]{1,80}」|“[^”\n]{1,80}”|\"[^\"\n]{1,80}\"")
@@ -112,7 +164,13 @@ def sentences(text: str) -> list[tuple[int, str]]:
     return out
 
 
+def text_len(s: str) -> int:
+    """长度统一口径：中文字符数 + 英文词数。用于密度计算。"""
+    return len(CJK.findall(s)) + len(LATIN_WORD.findall(s))
+
+
 def cjk_len(s: str) -> int:
+    """仅中文汉字数（用于「文本太短」判断与展示）。"""
     return len(CJK.findall(s))
 
 
@@ -128,28 +186,30 @@ def find_terms(text: str, terms: list[str]) -> list[tuple[str, int]]:
 
 # ---------------------------------------------------------------- 六维打分
 
-def score_jargon(text: str) -> tuple[float, list[str]]:
+def score_jargon(text: str, lang: str = "zh") -> tuple[float, list[str]]:
     text = mask_quotes(text)
-    hits = find_terms(text, JARGON)
-    per_100 = len(hits) / max(1, cjk_len(text)) * 1000
+    words = JARGON if lang == "zh" else EN_JARGON
+    hits = find_terms(text.lower() if lang == "en" else text, words)
+    per_100 = len(hits) / max(1, text_len(text)) * 1000
     # 每千字 3 个黑话即 100 分
     s = min(100.0, per_100 / 3 * 100)
     detail = sorted({h[0] for h in hits})
     return s, detail
 
 
-def score_empty_frame(text: str) -> tuple[float, list[str]]:
+def score_empty_frame(text: str, lang: str = "zh") -> tuple[float, list[str]]:
     text = mask_quotes(text)
-    hits = find_terms(text, EMPTY_FRAME)
+    words = EMPTY_FRAME if lang == "zh" else EN_EMPTY
+    hits = find_terms(text.lower() if lang == "en" else text, words)
     s = min(100.0, len(hits) * 34.0)
     return s, sorted({h[0] for h in hits})
 
 
-def score_parallel(text: str) -> tuple[float, list[str]]:
+def score_parallel(text: str, lang: str = "zh") -> tuple[float, list[str]]:
     text = mask_quotes(text)
     hits = []
-    for pat in PARALLEL:
-        hits += [m.group(0)[:30] for m in re.finditer(pat, text)]
+    for pat in (PARALLEL if lang == "zh" else EN_PARALLEL):
+        hits += [m.group(0)[:40] for m in re.finditer(pat, text, re.I)]
     sents = max(1, len(sentences(text)))
     density = len(hits) / sents * 100
     s = min(100.0, density / 8 * 100)  # 每 8% 句子带对称句式即满分
@@ -170,10 +230,11 @@ def score_structure(text: str) -> tuple[float, list[str]]:
     return s, hits[:8]
 
 
-def score_abstract(text: str) -> tuple[float, list[str]]:
+def score_abstract(text: str, lang: str = "zh") -> tuple[float, list[str]]:
     text = mask_quotes(text)
-    hits = find_terms(text, ABSTRACT)
-    per_1000 = len(hits) / max(1, cjk_len(text)) * 1000
+    words = ABSTRACT if lang == "zh" else EN_ABSTRACT
+    hits = find_terms(text.lower() if lang == "en" else text, words)
+    per_1000 = len(hits) / max(1, text_len(text)) * 1000
     s = min(100.0, per_1000 / 4 * 100)
     return s, sorted({h[0] for h in hits})
 
@@ -198,7 +259,7 @@ def score_specificity(text: str) -> tuple[float, list[str]]:
     n = 0
     for pat in SPECIFIC:
         n += len(re.findall(pat, text))
-    per_1000 = n / max(1, cjk_len(text)) * 1000
+    per_1000 = n / max(1, text_len(text)) * 1000
     # 每千字 6 个具体信号算及格线；越少越像 AI
     if per_1000 >= 12:
         return 0.0, []
@@ -220,14 +281,16 @@ WEIGHTS = {
 }
 
 
-def analyze(text: str, mode: str = "article") -> dict:
+def analyze(text: str, mode: str = "article", lang: str = "auto") -> dict:
     weights = WEIGHTS[mode]
+    if lang == "auto":
+        lang = detect_lang(text)
     dims: dict[str, tuple[float, list[str]]] = {
-        "套话黑话": score_jargon(text),
-        "空转收尾": score_empty_frame(text),
-        "对称句式": score_parallel(text),
+        "套话黑话": score_jargon(text, lang),
+        "空转收尾": score_empty_frame(text, lang),
+        "对称句式": score_parallel(text, lang),
         "结构模板": score_structure(text),
-        "抽象大词": score_abstract(text),
+        "抽象大词": score_abstract(text, lang),
         "句长均匀": score_rhythm(text),
         "具体性缺失": score_specificity(text),
     }
@@ -250,7 +313,9 @@ def analyze(text: str, mode: str = "article") -> dict:
         "score": score,
         "verdict": verdict,
         "mode": mode,
+        "lang": lang,
         "cjk_chars": cjk_len(text),
+        "words": len(LATIN_WORD.findall(text)),
         "dimensions": {k: round(v[0], 1) for k, v in dims.items()},
         "evidence": {k: v[1] for k, v in dims.items() if v[1]},
         "weights": weights,
@@ -263,7 +328,10 @@ BAR = "█"
 def render(r: dict, explain: bool) -> str:
     lines = []
     lines.append(f"AI 味：{r['score']} / 100    {r['verdict']}")
-    lines.append(f"字数：{r['cjk_chars']} 个汉字   模式：{r['mode']}")
+    lang_label = {"zh": "中文", "en": "英文"}.get(r.get("lang", "zh"), r.get("lang", ""))
+    unit = "个汉字" if r.get("lang") == "zh" else "个英文词"
+    count = r["cjk_chars"] if r.get("lang") == "zh" else r.get("words", 0)
+    lines.append(f"长度：{count} {unit}   语言：{lang_label}   模式：{r['mode']}")
     lines.append("")
     for k, w in sorted(r["weights"].items(), key=lambda x: -r["dimensions"][x[0]] * x[1]):
         v = r["dimensions"][k]
@@ -290,6 +358,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--explain", action="store_true", help="输出逐维度证据")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--fail-over", type=float, default=None, help="分数超过该值时退出码 1")
+    ap.add_argument("--lang", choices=["auto", "zh", "en"], default="auto",
+                    help="语言：auto 自动判断（默认）/ zh 中文 / en 英文")
     ap.add_argument("--mode", choices=["article", "doc"], default="article",
                     help="article=文章（默认）；doc=技术文档/README（不计结构模板）")
     args = ap.parse_args(argv)
@@ -303,11 +373,17 @@ def main(argv: list[str]) -> int:
             return 2
         text = p.read_text(encoding="utf-8-sig")
 
-    if cjk_len(text) < 30:
-        print("文本太短（不足 30 个汉字），检测结果不可靠。", file=sys.stderr)
+    lang = args.lang if args.lang != "auto" else detect_lang(text)
+    if lang == "zh":
+        too_short = cjk_len(text) < 30
+    else:
+        too_short = len(LATIN_WORD.findall(text)) < 40
+    if too_short:
+        unit = "30 个汉字" if lang == "zh" else "40 个英文词"
+        print(f"文本太短（不足 {unit}），检测结果不可靠。", file=sys.stderr)
         return 2
 
-    r = analyze(text, args.mode)
+    r = analyze(text, args.mode, lang)
     if args.json:
         print(json.dumps(r, ensure_ascii=False, indent=2))
     else:

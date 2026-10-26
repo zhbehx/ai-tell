@@ -1,0 +1,11 @@
+I deleted the staging database twice this month. Both times it was a Friday.
+
+The first time, the migration script had a default that pointed at prod. Nobody caught it in review because the diff was 400 lines and the reviewer was on a train.
+
+The second time I was moving fast and ran the wrong tab.
+
+We now have three things we didn't have before: every migration prints the target host and asks for confirmation, staging burns get restored from a nightly snapshot that we actually tested, and the deploy checklist has one line that says "read the host out loud."
+
+That last one sounds stupid. It's also the one that caught a mistake two weeks later.
+
+I'm not sure any of this generalizes. We're a team of nine and our staging data is disposable. If your staging data matters, the confirmation prompt won't save you.
