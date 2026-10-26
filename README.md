@@ -148,6 +148,14 @@ AI 味：2.9 / 100    很有人味：细节密度和节奏都自然
 
 **校准没有被这次修改影响**：AI 稿仍是 85.1，人写稿仍是 0.0。CI 里有断言守着这两个数（`ai >= 75`、`human <= 20`、差值 `>= 50`）。
 
+## 相关 skill
+
+写作与工具：[爆款文案工坊](https://github.com/zhbehx/viral-copy)（出稿 · 结构、钩子、标题）
+
+职场五件套：[简历对岗改写](https://github.com/zhbehx/resume-tailor) · [面试陪练](https://github.com/zhbehx/interview-coach) · [汇报写作](https://github.com/zhbehx/weekly-report) · [PPT 叙事大纲](https://github.com/zhbehx/slide-story) · [会议纪要](https://github.com/zhbehx/meeting-actions)
+
+共同点：零依赖、中文优先、每个都带一个确定性检查脚本。
+
 ## 和写作类 skill 怎么配合
 
 - 先用 [`viral-copy`](https://github.com/zhbehx/viral-copy) 出稿（结构、钩子、标题）。
