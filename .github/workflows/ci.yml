@@ -54,6 +54,22 @@ jobs:
             echo "fail-over OK"
           fi
 
+      - name: 中英双语校准
+        run: |
+          python scripts/ai_tell.py examples/fixtures/ai_draft_en.txt --json > /tmp/en_ai.json || true
+          python scripts/ai_tell.py examples/fixtures/human_draft_en.txt --json > /tmp/en_human.json || true
+          python - <<'PY'
+          import json
+          ai = json.load(open("/tmp/en_ai.json", encoding="utf-8"))
+          human = json.load(open("/tmp/en_human.json", encoding="utf-8"))
+          print(f"英文：AI 稿 {ai['score']}  人写稿 {human['score']}  lang={ai['lang']}/{human['lang']}")
+          assert ai["lang"] == "en" and human["lang"] == "en", "语言检测失败"
+          assert ai["score"] >= 70, f"英文 AI 稿只有 {ai['score']} 分"
+          assert human["score"] <= 25, f"英文人写稿有 {human['score']} 分"
+          assert ai["score"] - human["score"] >= 50, "英文区分度不足"
+          print("EN calibration OK")
+          PY
+
       - name: README 相对链接可解析
         run: |
           python - <<'PY'
