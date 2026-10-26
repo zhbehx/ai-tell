@@ -88,8 +88,16 @@ CJK = re.compile(r"[\u4e00-\u9fff]")
 QUOTED = re.compile(r"`[^`\n]{1,80}`|「[^」\n]{1,80}」|“[^”\n]{1,80}”|\"[^\"\n]{1,80}\"")
 
 
+FENCED = re.compile(r"^```[^\n]*\n.*?^```", re.S | re.M)
+
+
 def mask_quotes(text: str) -> str:
-    """把引号/代码里的内容替换成等长空白，保留位置与长度，避免误判「引用了这个词」。"""
+    """遮蔽「被引用 / 被展示」的内容，避免误判：
+
+    - 引号、书名号、行内代码：引用一个词，不等于在用这个词
+    - 围栏代码块：示例输出、命令、代码，不反映作者文风
+    """
+    text = FENCED.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
     return QUOTED.sub(lambda m: " " * len(m.group(0)), text)
 
 
